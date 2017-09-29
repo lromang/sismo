@@ -66,15 +66,14 @@ clean_text <- function(text, wlength = 2){
     stopwords_regex <- paste(stopwords('es'), collapse = '\\b|\\b')
     stopwords_regex <- paste0('\\b', stopwords_regex, '\\b')
     ## Text processing
-    text <- text                        %>%
-        removeNumbers()                %>%
-        tolower()                      %>%
-        removePunctuation()            %>%
-        str_replace_all('\\n', "")     %>%
-        str_replace_all("\t", "")      %>%
-        str_replace_all('http:[^ ]+')  %>%
-        iconv("UTF-8", "ASCII", "")    %>%
-        ## short_words(wlength = wlength) %>%
+    text <- text                            %>%
+        removeNumbers()                    %>%
+        tolower()                          %>%
+        removePunctuation()                %>%
+        str_replace_all('\\n', "")         %>%
+        str_replace_all("\t", "")          %>%
+        str_replace_all('http[^ ]+', '')  %>%
+        iconv("UTF-8", "ASCII", "")        %>%
         stringr::str_replace_all(stopwords_regex, '')
     text
 }
@@ -156,19 +155,18 @@ vectorizer <- vocab_vectorizer(vocab)
 ## use window of 5 for context words
 tcm        <- create_tcm(it,
                         vectorizer,
-                        skip_grams_window = 5)
+                        skip_grams_window = 3)
 glove      <- GlobalVectors$new(word_vectors_size = 50,
                                vocabulary        = vocab,
                                x_max             = 10)
 glove$fit_transform(tcm, n_iter = 20)
 
 ## Word Vectors
-word_vectors <- glove$components()
+word_vectors <- glove$get_word_vectors()
 
 ## Gobierno
 gobierno <- word_vectors[,"gobierno" , drop = FALSE] +
-    word_vectors[,"sismo",  drop = FALSE] +
-    word_vectors[,"epn" , drop = FALSE]
+    word_vectors[,"sismo",  drop = FALSE]
 cos_sim  <- apply(word_vectors, 2, function(t)t <- t%*%gobierno)
 
-head(sort(cos_sim, decreasing = TRUE), 20)
+head(sort(cos_sim, decreasing = TRUE), 50)
