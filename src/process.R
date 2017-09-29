@@ -58,25 +58,27 @@ suppressPackageStartupMessages(library(foreign))
 ## ----------------------------------------
 
 ## Clean text
-clean_text <- function(text){
+clean_text <- function(text, wlength = 2){
     ## Stop Words
     stopwords_regex <- paste(stopwords('es'), collapse = '\\b|\\b')
     stopwords_regex <- paste0('\\b', stopwords_regex, '\\b')
     ## Text processing
-    text <- text                     %>%
-        removeNumbers()             %>%
-        tolower()                   %>%
-        removePunctuation()         %>%
-        str_replace_all('\\n', "")  %>%
-        str_replace_all("\t", "")   %>%
-        iconv("UTF-8", "ASCII", "") %>%
+    text <- text                        %>%
+        removeNumbers()                %>%
+        tolower()                      %>%
+        removePunctuation()            %>%
+        str_replace_all('\\n', "")     %>%
+        str_replace_all("\t", "")      %>%
+        iconv("UTF-8", "ASCII", "")    %>%
+        short_words(wlength = wlength) %>%
         stringr::str_replace_all(stopwords_regex, '')
     text
 }
 
-## Get Words
-get_words <- function(text, wlength = 2){
+## Short Words
+short_words <- function(text, wlength = 2){
     words <- tokenize(text)
+    paste(words[str_length(words) > wlength], collapse = ' ')
 }
 
 ###########################################
@@ -95,3 +97,4 @@ tweets     <- fread('../data/tweet_opinion_matrix.csv')
 ## ----------------------------------------
 tweet_text <- tweets$text %>%
     clean_text
+writeLines(tweet_text, '../outputData/clean_tweets.txt')
