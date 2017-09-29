@@ -24,6 +24,9 @@ suppressPackageStartupMessages(library(tidyr))
 ## Manejo de cadenas de caracteres
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(tm))
+suppressPackageStartupMessages(library(tau))
+suppressPackageStartupMessages(library(qlcMatrix))
+suppressPackageStartupMessages(library(text2vec))
 ## Manejo de data frames
 suppressPackageStartupMessages(library(data.table))
 ## Predicción
@@ -70,7 +73,7 @@ clean_text <- function(text, wlength = 2){
         str_replace_all('\\n', "")     %>%
         str_replace_all("\t", "")      %>%
         iconv("UTF-8", "ASCII", "")    %>%
-        short_words(wlength = wlength) %>%
+        ## short_words(wlength = wlength) %>%
         stringr::str_replace_all(stopwords_regex, '')
     text
 }
@@ -95,6 +98,76 @@ tweets     <- fread('../data/tweet_opinion_matrix.csv')
 ## ----------------------------------------
 ## Clean Text
 ## ----------------------------------------
-tweet_text <- tweets$text %>%
-    clean_text
-writeLines(tweet_text, '../outputData/clean_tweets.txt')
+if(!file('../outputData/clean_tweets.txt')){
+    tweet_text <- tweets$text %>%
+        clean_text
+    tweet_text <- laply(tweet_text, short_words)
+}else{
+    tweet_text <- readLines('../outputData/clean_tweets.txt')
+}
+
+## ----------------------------------------
+## Construct Co-ocurrence matrix
+## ----------------------------------------
+
+## First work with sample
+set.seed(123454321)
+samp       <- sample(length(tweet_text), 100000)
+test_tweet <- tweet_text[samp]
+
+## Part whole matrix
+pw <- pwMatrix(test_tweet, sep = ' ')
+
+## Type token matrix
+tt    <- ttMatrix(pw$rownames)
+distr <- (tt$M*1) %*% (pw$M*1)
+rownames(distr) <- tt$rownames
+colnames(distr) <- test_tweet
+distr
+
+## Co-ocurrence counts of adjacent characters
+S   <- bandSparse(n = ncol(tt$M), k = 1) * 1
+TT  <- tt$M * 1
+C   <- TT %*% S %*% t(TT)
+##
+s      <- summary(C)
+first  <- tt$rownames[s[,1]]
+second <- tt$rownames[s[,2]]
+freq   <- s[,3]
+test_m <- data.frame(first, second, freq)
+test_m <- test_m[order(test_m$freq, decreasing = TRUE), ]
+test_m <- test_m[test_m$freq >= 4, ]
+
+## ----------------------------------------
+## Word 2 Vec
+## source:
+## https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html
+## ----------------------------------------
+tokens <- space_tokenizer(test_tweet)
+it     <- itoken(tokens, progressbar = FALSE)
+vocab  <- create_vocabulary(it)
+vocab  <- prune_vocabulary(vocab,
+                          term_count_min = 5L)
+
+## Filtered vocabulary
+vectorizer <- vocab_vectorizer(vocab)
+
+## use window of 5 for context words
+tcm        <- create_tcm(it,
+                        vectorizer,
+                        skip_grams_window = 5)
+glove      <- GlobalVectors$new(word_vectors_size = 50,
+                               vocabulary        = vocab,
+                               x_max             = 10)
+glove$fit_transform(tcm, n_iter = 20)
+
+## Word Vectors
+word_vectors <- glove$components()
+
+## Gobierno
+gobierno <- word_vectors[,"gobierno" , drop = FALSE] +
+    word_vectors[,"sismo",  drop = FALSE] +
+    word_vectors[,"epn" , drop = FALSE]
+cos_sim  <- apply(word_vectors, 2, function(t)t <- t%*%gobierno)
+
+head(sort(cos_sim, decreasing = TRUE), 20)
