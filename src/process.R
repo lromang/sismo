@@ -72,6 +72,7 @@ clean_text <- function(text, wlength = 2){
         removePunctuation()            %>%
         str_replace_all('\\n', "")     %>%
         str_replace_all("\t", "")      %>%
+        str_replace_all('http:[^ ]+')  %>%
         iconv("UTF-8", "ASCII", "")    %>%
         ## short_words(wlength = wlength) %>%
         stringr::str_replace_all(stopwords_regex, '')
