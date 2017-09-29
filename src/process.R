@@ -75,7 +75,9 @@ clean_text <- function(text){
 }
 
 ## Get Words
-get_words <- function(words)
+get_words <- function(text, wlength = 2){
+    words <- tokenize(text)
+}
 
 ###########################################
 ###########################################
@@ -93,5 +95,3 @@ tweets     <- fread('../data/tweet_opinion_matrix.csv')
 ## ----------------------------------------
 tweet_text <- tweets$text %>%
     clean_text
-
-head(tweet_text)
